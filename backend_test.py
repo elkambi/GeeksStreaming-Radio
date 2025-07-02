@@ -334,23 +334,45 @@ def main():
     tester.test_dashboard_stats()
     tester.test_recent_activity()
     
-    # Client management tests - Note: There's an issue with MongoDB ObjectId serialization
-    print("\n⚠️ ISSUE DETECTED: Client creation fails due to MongoDB ObjectId serialization")
-    print("Skipping client and stream creation tests")
+    # Client management tests
+    if not tester.test_create_client():
+        print("❌ Client creation failed, stopping tests")
+        return 1
     
-    # Test existing clients and streams if any
     tester.test_get_clients()
+    tester.test_get_client()
+    tester.test_update_client()
+    
+    # Stream management tests
+    if not tester.test_create_stream():
+        print("❌ Stream creation failed, stopping tests")
+        return 1
+    
+    tester.test_get_streams()
+    tester.test_get_client_streams()
+    tester.test_update_stream()
+    
+    # Stream control tests
+    tester.test_stream_control()
+    
+    # Cleanup
+    tester.test_delete_stream()
+    tester.test_delete_client()
     
     # Print results
     print("\n" + "=" * 50)
     print(f"TESTS PASSED: {tester.tests_passed}/{tester.tests_run}")
     print("=" * 50)
-    print("\n⚠️ ISSUE SUMMARY:")
-    print("1. Authentication endpoints work correctly")
-    print("2. Dashboard endpoints work correctly")
-    print("3. Client creation fails with MongoDB ObjectId serialization error")
-    print("   - Error: 'ObjectId' object is not iterable")
-    print("   - Fix needed in server.py to handle MongoDB ObjectId serialization")
+    
+    if tester.tests_passed == tester.tests_run:
+        print("\n✅ SUCCESS: All tests passed!")
+        print("1. Authentication endpoints work correctly")
+        print("2. Dashboard endpoints work correctly")
+        print("3. Client creation works correctly")
+        print("4. Stream creation works correctly")
+        print("5. Stream control (start/stop) works correctly")
+    else:
+        print(f"\n⚠️ ISSUE SUMMARY: {tester.tests_run - tester.tests_passed} tests failed")
     
     return 0
 

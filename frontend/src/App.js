@@ -438,12 +438,16 @@ function ClientManagement({ clients, onRefresh, fetchWithAuth }) {
       const url = editingClient ? `/api/clients/${editingClient.id}` : '/api/clients';
       const method = editingClient ? 'PUT' : 'POST';
       
+      console.log('Submitting client:', { url, method, formData });
+      
       const response = await fetchWithAuth(url, {
         method,
         body: JSON.stringify(formData)
       });
       
       if (response.ok) {
+        const responseData = await response.json();
+        console.log('Client creation response:', responseData);
         setShowModal(false);
         setEditingClient(null);
         setFormData({
@@ -456,9 +460,14 @@ function ClientManagement({ clients, onRefresh, fetchWithAuth }) {
           bandwidth_limit: 128
         });
         onRefresh();
+      } else {
+        const errorData = await response.json();
+        console.error('Client creation failed:', errorData);
+        alert(`Error: ${errorData.detail || 'Failed to create client'}`);
       }
     } catch (error) {
       console.error('Error saving client:', error);
+      alert('Network error occurred while saving client');
     }
   };
 

@@ -10,6 +10,8 @@ from datetime import datetime
 import hashlib
 import jwt
 from passlib.context import CryptContext
+from bson import ObjectId
+import json
 
 # Environment variables
 MONGO_URL = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')

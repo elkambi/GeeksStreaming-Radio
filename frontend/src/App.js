@@ -135,6 +135,7 @@ function App() {
         fetchClients();
       } else if (currentPage === 'streams') {
         fetchStreams();
+        fetchClients(); // Also fetch clients for stream creation
       }
     }
   }, [user, currentPage]);

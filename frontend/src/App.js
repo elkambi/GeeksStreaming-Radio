@@ -1063,7 +1063,1159 @@ function ClientModal({ client, formData, setFormData, onSubmit, onClose, onShowT
   );
 }
 
-// The rest of the components will be continued in the next part...
-// Due to length limitations, I'll need to continue with StreamManagement and other components
+// Enhanced Stream Management Component
+function StreamManagement({ streams, clients, onRefresh, fetchWithAuth, onShowTooltip, onHideTooltip }) {
+  const [showModal, setShowModal] = useState(false);
+  const [editingStream, setEditingStream] = useState(null);
+  const [formData, setFormData] = useState({
+    client_id: '',
+    name: '',
+    description: '',
+    port: 8000,
+    mount_point: '/stream',
+    bitrate: 128,
+    max_listeners: 100,
+    format: 'mp3',
+    auto_dj: false
+  });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const url = editingStream 
+        ? `/api/streams/${editingStream.id}` 
+        : `/api/clients/${formData.client_id}/streams`;
+      const method = editingStream ? 'PUT' : 'POST';
+      
+      console.log('Submitting stream:', { url, method, formData });
+      
+      const response = await fetchWithAuth(url, {
+        method,
+        body: JSON.stringify(formData)
+      });
+      
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('Stream creation response:', responseData);
+        setShowModal(false);
+        setEditingStream(null);
+        setFormData({
+          client_id: '',
+          name: '',
+          description: '',
+          port: 8000,
+          mount_point: '/stream',
+          bitrate: 128,
+          max_listeners: 100,
+          format: 'mp3',
+          auto_dj: false
+        });
+        onRefresh();
+      } else {
+        const errorData = await response.json();
+        console.error('Stream creation failed:', errorData);
+        alert(`Error: ${errorData.detail || 'Failed to create stream'}`);
+      }
+    } catch (error) {
+      console.error('Error saving stream:', error);
+      alert('Network error occurred while saving stream');
+    }
+  };
+
+  const handleStreamControl = async (streamId, action) => {
+    try {
+      const response = await fetchWithAuth(`/api/streams/${streamId}/${action}`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        onRefresh();
+      }
+    } catch (error) {
+      console.error(`Error ${action} stream:`, error);
+    }
+  };
+
+  const handleDelete = async (streamId) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este stream?')) {
+      try {
+        const response = await fetchWithAuth(`/api/streams/${streamId}`, {
+          method: 'DELETE'
+        });
+        if (response.ok) {
+          onRefresh();
+        }
+      } catch (error) {
+        console.error('Error deleting stream:', error);
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Gestión de Streams</h2>
+          <p className="text-gray-400 mt-1">Administra las transmisiones de audio en tiempo real</p>
+        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-lg font-medium transition duration-200 flex items-center space-x-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+          </svg>
+          <span>Agregar Stream</span>
+        </button>
+      </div>
+
+      <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-700">
+              <tr>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Stream</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Cliente</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">
+                  <div className="flex items-center">
+                    Puerto
+                    <HelpIcon 
+                      topic="stream_port" 
+                      onShow={onShowTooltip} 
+                      onHide={onHideTooltip} 
+                    />
+                  </div>
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">
+                  <div className="flex items-center">
+                    Formato/Bitrate
+                    <HelpIcon 
+                      topic="stream_bitrate" 
+                      onShow={onShowTooltip} 
+                      onHide={onHideTooltip} 
+                    />
+                  </div>
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Estado</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Oyentes</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700">
+              {streams.map((stream) => (
+                <tr key={stream.id} className="hover:bg-gray-750 transition duration-200">
+                  <td className="px-6 py-4">
+                    <div>
+                      <div className="text-white font-medium flex items-center">
+                        {stream.name}
+                        {stream.auto_dj && (
+                          <span className="ml-2 px-2 py-1 bg-purple-600 text-white text-xs rounded">
+                            Auto DJ
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-gray-400 text-sm">{stream.mount_point}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-300">{stream.client_name}</td>
+                  <td className="px-6 py-4 text-gray-300">{stream.port}</td>
+                  <td className="px-6 py-4 text-gray-300">
+                    {stream.format.toUpperCase()} / {stream.bitrate} kbps
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center space-x-2">
+                      <span className={`w-3 h-3 rounded-full ${
+                        stream.status === 'running' 
+                          ? 'bg-green-500 animate-pulse'
+                          : stream.status === 'stopped'
+                          ? 'bg-gray-500'
+                          : 'bg-red-500'
+                      }`}></span>
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        stream.status === 'running' 
+                          ? 'bg-green-600 text-white'
+                          : stream.status === 'stopped'
+                          ? 'bg-gray-600 text-white'
+                          : 'bg-red-600 text-white'
+                      }`}>
+                        {stream.status === 'running' ? 'En Vivo' : 
+                         stream.status === 'stopped' ? 'Detenido' : 'Error'}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-300">
+                    {stream.current_listeners || 0} / {stream.max_listeners}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex space-x-2">
+                      {stream.status === 'stopped' ? (
+                        <button
+                          onClick={() => handleStreamControl(stream.id, 'start')}
+                          className="flex items-center space-x-1 text-green-400 hover:text-green-300 transition duration-200"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m-6-4V8a2 2 0 012-2h4a2 2 0 012 2v2" />
+                          </svg>
+                          <span>Iniciar</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleStreamControl(stream.id, 'stop')}
+                          className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition duration-200"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          <span>Detener</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDelete(stream.id)}
+                        className="text-red-400 hover:text-red-300 transition duration-200"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {streams.length === 0 && (
+            <div className="text-center py-12 text-gray-400">
+              No hay streams configurados. Agrega tu primer stream para comenzar a transmitir.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Stream Modal */}
+      {showModal && (
+        <StreamModal
+          stream={editingStream}
+          clients={clients}
+          formData={formData}
+          setFormData={setFormData}
+          onSubmit={handleSubmit}
+          onClose={() => {
+            setShowModal(false);
+            setEditingStream(null);
+            setFormData({
+              client_id: '',
+              name: '',
+              description: '',
+              port: 8000,
+              mount_point: '/stream',
+              bitrate: 128,
+              max_listeners: 100,
+              format: 'mp3',
+              auto_dj: false
+            });
+          }}
+          onShowTooltip={onShowTooltip}
+          onHideTooltip={onHideTooltip}
+        />
+      )}
+    </div>
+  );
+}
+
+// Enhanced Stream Modal Component
+function StreamModal({ stream, clients, formData, setFormData, onSubmit, onClose, onShowTooltip, onHideTooltip }) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-xl p-6 w-full max-w-4xl border border-gray-700 max-h-screen overflow-y-auto">
+        <h3 className="text-xl font-bold text-white mb-6">
+          {stream ? 'Editar Stream' : 'Agregar Nuevo Stream'}
+        </h3>
+        
+        <form onSubmit={onSubmit} className="space-y-6">
+          {/* Basic Information */}
+          <div className="bg-gray-700 p-4 rounded-lg">
+            <h4 className="text-lg font-medium text-white mb-4">Información Básica</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">Cliente *</label>
+                <select
+                  value={formData.client_id}
+                  onChange={(e) => setFormData({...formData, client_id: e.target.value})}
+                  className="w-full px-4 py-3 bg-gray-600 border border-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 text-white"
+                  required
+                  disabled={!!stream}
+                >
+                  <option value="">Selecciona un cliente</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>{client.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Nombre del Stream *</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full px-4 py-3 bg-gray-600 border border-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 text-white"
+                  placeholder="Mi Radio Stream"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <div className="flex items-center">
+                    Puerto *
+                    <HelpIcon 
+                      topic="stream_port" 
+                      onShow={onShowTooltip} 
+                      onHide={onHideTooltip} 
+                    />
+                  </div>
+                </label>
+                <input
+                  type="number"
+                  value={formData.port}
+                  onChange={(e) => setFormData({...formData, port: parseInt(e.target.value)})}
+                  className="w-full px-4 py-3 bg-gray-600 border border-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 text-white"
+                  min="1024"
+                  max="65535"
+                  required
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <div className="flex items-center">
+                    Mount Point
+                    <HelpIcon 
+                      topic="stream_mount_point" 
+                      onShow={onShowTooltip} 
+                      onHide={onHideTooltip} 
+                    />
+                  </div>
+                </label>
+                <input
+                  type="text"
+                  value={formData.mount_point}
+                  onChange={(e) => setFormData({...formData, mount_point: e.target.value})}
+                  className="w-full px-4 py-3 bg-gray-600 border border-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 text-white"
+                  placeholder="/mystream"
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">Descripción</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  className="w-full px-4 py-3 bg-gray-600 border border-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 text-white"
+                  rows="3"
+                  placeholder="Descripción del stream de radio..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Audio Settings */}
+          <div className="bg-gray-700 p-4 rounded-lg">
+            <h4 className="text-lg font-medium text-white mb-4">Configuración de Audio</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <div className="flex items-center">
+                    Bitrate (kbps)
+                    <HelpIcon 
+                      topic="stream_bitrate" 
+                      onShow={onShowTooltip} 
+                      onHide={onHideTooltip} 
+                    />
+                  </div>
+                </label>
+                <select
+                  value={formData.bitrate}
+                  onChange={(e) => setFormData({...formData, bitrate: parseInt(e.target.value)})}
+                  className="w-full px-4 py-3 bg-gray-600 border border-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 text-white"
+                >
+                  <option value={64}>64 kbps - Calidad Básica</option>
+                  <option value={96}>96 kbps - Calidad Media</option>
+                  <option value={128}>128 kbps - Calidad Estándar</option>
+                  <option value={192}>192 kbps - Calidad Alta</option>
+                  <option value={256}>256 kbps - Calidad Premium</option>
+                  <option value={320}>320 kbps - Calidad Máxima</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <div className="flex items-center">
+                    Formato
+                    <HelpIcon 
+                      topic="stream_format" 
+                      onShow={onShowTooltip} 
+                      onHide={onHideTooltip} 
+                    />
+                  </div>
+                </label>
+                <select
+                  value={formData.format}
+                  onChange={(e) => setFormData({...formData, format: e.target.value})}
+                  className="w-full px-4 py-3 bg-gray-600 border border-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 text-white"
+                >
+                  <option value="mp3">MP3 - Compatibilidad máxima</option>
+                  <option value="aac">AAC - Mejor calidad</option>
+                  <option value="ogg">OGG - Código abierto</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Máximo Oyentes</label>
+                <input
+                  type="number"
+                  value={formData.max_listeners}
+                  onChange={(e) => setFormData({...formData, max_listeners: parseInt(e.target.value)})}
+                  className="w-full px-4 py-3 bg-gray-600 border border-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 text-white"
+                  min="1"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Advanced Settings */}
+          <div className="bg-gray-700 p-4 rounded-lg">
+            <h4 className="text-lg font-medium text-white mb-4">Configuración Avanzada</h4>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="auto_dj"
+                  checked={formData.auto_dj}
+                  onChange={(e) => setFormData({...formData, auto_dj: e.target.checked})}
+                  className="w-4 h-4 text-purple-600 bg-gray-600 border-gray-500 rounded focus:ring-purple-500"
+                />
+                <label htmlFor="auto_dj" className="text-gray-300 flex items-center">
+                  <span>Habilitar Auto DJ</span>
+                  <HelpIcon 
+                    topic="auto_dj" 
+                    onShow={onShowTooltip} 
+                    onHide={onHideTooltip} 
+                  />
+                </label>
+              </div>
+              
+              {formData.auto_dj && (
+                <div className="ml-7 p-3 bg-gray-600 rounded-lg">
+                  <p className="text-sm text-gray-300">
+                    El Auto DJ reproducirá automáticamente música cuando no haya una fuente en vivo conectada.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-4 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-3 text-gray-300 hover:text-white transition duration-200"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-lg font-medium transition duration-200"
+            >
+              {stream ? 'Actualizar Stream' : 'Crear Stream'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Analytics Component
+function Analytics({ fetchWithAuth }) {
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedPeriod, setSelectedPeriod] = useState(7);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [selectedPeriod]);
+
+  const fetchAnalytics = async () => {
+    setLoading(true);
+    try {
+      const response = await fetchWithAuth('/api/analytics/dashboard');
+      if (response.ok) {
+        const data = await response.json();
+        setAnalyticsData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    }
+    setLoading(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white">Analytics</h2>
+        </div>
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
+          <p className="text-gray-400 mt-4">Cargando estadísticas...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Analytics Avanzados</h2>
+          <p className="text-gray-400 mt-1">Estadísticas detalladas de tu plataforma de radio</p>
+        </div>
+        <select
+          value={selectedPeriod}
+          onChange={(e) => setSelectedPeriod(parseInt(e.target.value))}
+          className="bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600"
+        >
+          <option value={1}>Último día</option>
+          <option value={7}>Última semana</option>
+          <option value={30}>Último mes</option>
+          <option value={90}>Últimos 3 meses</option>
+        </select>
+      </div>
+
+      {/* System Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Estado del Sistema</h3>
+          {analyticsData?.system_stats && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Uso de CPU</span>
+                <span className="text-white font-mono">{analyticsData.system_stats.cpu_percent.toFixed(1)}%</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Uso de Memoria</span>
+                <span className="text-white font-mono">{analyticsData.system_stats.memory_percent.toFixed(1)}%</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Uso de Disco</span>
+                <span className="text-white font-mono">{analyticsData.system_stats.disk_percent.toFixed(1)}%</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Ancho de Banda</h3>
+          <div className="text-3xl font-bold text-purple-400 mb-2">
+            {((analyticsData?.total_bandwidth_24h || 0) / 1024).toFixed(2)} GB
+          </div>
+          <p className="text-gray-400">Transferido en las últimas 24 horas</p>
+        </div>
+      </div>
+
+      {/* Popular Streams */}
+      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Streams Más Populares</h3>
+        <div className="space-y-3">
+          {analyticsData?.popular_streams?.map(([streamId, listeners], index) => (
+            <div key={streamId} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-bold ${
+                  index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-500' : 'bg-gray-600'
+                }`}>
+                  {index + 1}
+                </div>
+                <span className="text-white">Stream {streamId.slice(0, 8)}</span>
+              </div>
+              <div className="text-purple-400 font-semibold">{listeners} oyentes</div>
+            </div>
+          )) || (
+            <p className="text-gray-400 text-center py-4">No hay datos de streams disponibles</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Billing Component
+function Billing({ fetchWithAuth }) {
+  const [billingData, setBillingData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchBillingData();
+  }, []);
+
+  const fetchBillingData = async () => {
+    setLoading(true);
+    try {
+      const response = await fetchWithAuth('/api/billing/clients');
+      if (response.ok) {
+        const data = await response.json();
+        setBillingData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching billing data:', error);
+    }
+    setLoading(false);
+  };
+
+  const generateBill = async (clientId) => {
+    try {
+      const response = await fetchWithAuth(`/api/billing/generate/${clientId}`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        alert('Factura generada exitosamente');
+        fetchBillingData();
+      }
+    } catch (error) {
+      console.error('Error generating bill:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white">Sistema de Facturación</h2>
+        </div>
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto"></div>
+          <p className="text-gray-400 mt-4">Cargando información de facturación...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalRevenue = billingData.reduce((sum, client) => sum + (client.billing_info?.latest_amount || 0), 0);
+  const pendingBills = billingData.filter(client => client.billing_info?.status === 'pending').length;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Sistema de Facturación</h2>
+          <p className="text-gray-400 mt-1">Gestiona cobros y suscripciones de clientes</p>
+        </div>
+      </div>
+
+      {/* Billing Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-sm font-medium">Ingresos Totales</p>
+              <p className="text-3xl font-bold text-green-400 mt-2">${totalRevenue.toFixed(2)}</p>
+            </div>
+            <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-sm font-medium">Facturas Pendientes</p>
+              <p className="text-3xl font-bold text-yellow-400 mt-2">{pendingBills}</p>
+            </div>
+            <div className="w-12 h-12 bg-yellow-600 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-sm font-medium">Clientes Activos</p>
+              <p className="text-3xl font-bold text-blue-400 mt-2">{billingData.length}</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Client Billing Table */}
+      <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-700">
+          <h3 className="text-lg font-semibold text-white">Estado de Facturación por Cliente</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-700">
+              <tr>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Cliente</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Plan</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Tarifa Mensual</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Último Pago</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Estado</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-300">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700">
+              {billingData.map((client) => (
+                <tr key={client.id} className="hover:bg-gray-750 transition duration-200">
+                  <td className="px-6 py-4">
+                    <div>
+                      <div className="text-white font-medium">{client.name}</div>
+                      <div className="text-gray-400 text-sm">{client.email}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 rounded text-sm ${
+                      client.billing_plan === 'enterprise' ? 'bg-purple-600 text-white' :
+                      client.billing_plan === 'premium' ? 'bg-blue-600 text-white' :
+                      'bg-gray-600 text-white'
+                    }`}>
+                      {client.billing_plan === 'basic' ? 'Básico' : 
+                       client.billing_plan === 'premium' ? 'Premium' : 'Empresarial'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-300">${(client.monthly_fee || 0).toFixed(2)}</td>
+                  <td className="px-6 py-4 text-gray-300">
+                    ${(client.billing_info?.latest_amount || 0).toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      client.billing_info?.status === 'paid' ? 'bg-green-600 text-white' :
+                      client.billing_info?.status === 'pending' ? 'bg-yellow-600 text-white' :
+                      client.billing_info?.status === 'overdue' ? 'bg-red-600 text-white' :
+                      'bg-gray-600 text-white'
+                    }`}>
+                      {client.billing_info?.status === 'paid' ? 'Pagado' :
+                       client.billing_info?.status === 'pending' ? 'Pendiente' :
+                       client.billing_info?.status === 'overdue' ? 'Vencido' : 'Sin facturas'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => generateBill(client.id)}
+                      className="text-green-400 hover:text-green-300 transition duration-200"
+                    >
+                      Generar Factura
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Server Configuration Component
+function ServerConfig({ fetchWithAuth, onShowTooltip, onHideTooltip }) {
+  const [configs, setConfigs] = useState({});
+  const [serverStats, setServerStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('system');
+
+  useEffect(() => {
+    fetchServerConfig();
+    fetchServerStats();
+  }, []);
+
+  const fetchServerConfig = async () => {
+    try {
+      const response = await fetchWithAuth('/api/server/config');
+      if (response.ok) {
+        const data = await response.json();
+        setConfigs(data);
+      }
+    } catch (error) {
+      console.error('Error fetching server config:', error);
+    }
+  };
+
+  const fetchServerStats = async () => {
+    try {
+      const response = await fetchWithAuth('/api/server/stats');
+      if (response.ok) {
+        const data = await response.json();
+        setServerStats(data);
+      }
+    } catch (error) {
+      console.error('Error fetching server stats:', error);
+    }
+    setLoading(false);
+  };
+
+  const updateConfig = async (key, value) => {
+    try {
+      const response = await fetchWithAuth(`/api/server/config/${key}`, {
+        method: 'PUT',
+        body: JSON.stringify({ value })
+      });
+      if (response.ok) {
+        fetchServerConfig();
+      }
+    } catch (error) {
+      console.error('Error updating config:', error);
+    }
+  };
+
+  const createBackup = async () => {
+    try {
+      const response = await fetchWithAuth('/api/server/backup', {
+        method: 'POST'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        alert(`Backup creado exitosamente: ${data.backup_id}`);
+      }
+    } catch (error) {
+      console.error('Error creating backup:', error);
+    }
+  };
+
+  const tabs = [
+    { id: 'system', name: 'Sistema', icon: 'server' },
+    { id: 'email', name: 'Correo', icon: 'mail' },
+    { id: 'streaming', name: 'Streaming', icon: 'radio' },
+    { id: 'security', name: 'Seguridad', icon: 'shield' },
+  ];
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white">Configuración del Servidor</h2>
+        </div>
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="text-gray-400 mt-4">Cargando configuración...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Configuración del Servidor</h2>
+          <p className="text-gray-400 mt-1">Administra la configuración y herramientas del sistema</p>
+        </div>
+        <button
+          onClick={createBackup}
+          className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-6 py-3 rounded-lg font-medium transition duration-200 flex items-center space-x-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+          </svg>
+          <span>Crear Backup</span>
+        </button>
+      </div>
+
+      {/* Server Stats Overview */}
+      {serverStats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm font-medium">CPU</p>
+                <p className="text-2xl font-bold text-blue-400 mt-2">
+                  {serverStats.system?.cpu_percent?.toFixed(1) || 0}%
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm font-medium">Memoria</p>
+                <p className="text-2xl font-bold text-green-400 mt-2">
+                  {serverStats.system?.memory_percent?.toFixed(1) || 0}%
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm font-medium">Clientes BD</p>
+                <p className="text-2xl font-bold text-purple-400 mt-2">
+                  {serverStats.database?.clients || 0}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm font-medium">Streams BD</p>
+                <p className="text-2xl font-bold text-orange-400 mt-2">
+                  {serverStats.database?.streams || 0}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Configuration Tabs */}
+      <div className="bg-gray-800 rounded-xl border border-gray-700">
+        <div className="border-b border-gray-700">
+          <nav className="flex space-x-8 px-6">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition duration-200 ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-transparent text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                {tab.name}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="p-6">
+          {configs[activeTab] && (
+            <div className="space-y-6">
+              {configs[activeTab].map((config) => (
+                <div key={config.key} className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+                  <div className="flex-1">
+                    <div className="flex items-center">
+                      <h4 className="text-white font-medium">{config.key.replace(/_/g, ' ').toUpperCase()}</h4>
+                      <HelpIcon 
+                        topic={config.key} 
+                        onShow={onShowTooltip} 
+                        onHide={onHideTooltip} 
+                      />
+                    </div>
+                    <p className="text-gray-400 text-sm mt-1">{config.description}</p>
+                  </div>
+                  <div className="ml-4">
+                    {typeof config.value === 'boolean' ? (
+                      <button
+                        onClick={() => updateConfig(config.key, !config.value)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          config.value ? 'bg-blue-600' : 'bg-gray-600'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            config.value ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    ) : typeof config.value === 'number' ? (
+                      <input
+                        type="number"
+                        value={config.value}
+                        onChange={(e) => updateConfig(config.key, parseInt(e.target.value))}
+                        className="w-24 px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={config.value}
+                        onChange={(e) => updateConfig(config.key, e.target.value)}
+                        className="w-48 px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm"
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Help Center Component
+function HelpCenter({ fetchWithAuth }) {
+  const [helpTopics, setHelpTopics] = useState(null);
+  const [selectedTopic, setSelectedTopic] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchHelpTopics();
+  }, []);
+
+  const fetchHelpTopics = async () => {
+    try {
+      const response = await fetchWithAuth('/api/help/topics');
+      if (response.ok) {
+        const data = await response.json();
+        setHelpTopics(data);
+        setSelectedTopic(Object.keys(data)[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching help topics:', error);
+    }
+    setLoading(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white">Centro de Ayuda</h2>
+        </div>
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto"></div>
+          <p className="text-gray-400 mt-4">Cargando ayuda...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Centro de Ayuda</h2>
+          <p className="text-gray-400 mt-1">Guías y tutoriales para usar el sistema</p>
+        </div>
+        <div className="bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+          <span className="inline-block w-2 h-2 bg-white rounded-full mr-2"></span>
+          Ayuda en Línea
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Topics Sidebar */}
+        <div className="lg:col-span-1">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
+            <h3 className="text-lg font-semibold text-white mb-4">Temas de Ayuda</h3>
+            <div className="space-y-2">
+              {helpTopics && Object.entries(helpTopics).map(([key, topic]) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedTopic(key)}
+                  className={`w-full text-left p-3 rounded-lg transition duration-200 ${
+                    selectedTopic === key
+                      ? 'bg-yellow-600 text-white'
+                      : 'text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  <div className="font-medium">{topic.title}</div>
+                  <div className="text-sm opacity-75">{topic.description}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="lg:col-span-3">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+            {helpTopics && selectedTopic && (
+              <div>
+                <h3 className="text-2xl font-bold text-white mb-4">
+                  {helpTopics[selectedTopic].title}
+                </h3>
+                <p className="text-gray-400 mb-6">
+                  {helpTopics[selectedTopic].description}
+                </p>
+                
+                <div className="space-y-6">
+                  {helpTopics[selectedTopic].sections.map((section) => (
+                    <div key={section.id} className="bg-gray-700 p-4 rounded-lg">
+                      <h4 className="text-lg font-semibold text-white mb-2">
+                        {section.title}
+                      </h4>
+                      <p className="text-gray-300">{section.content}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Quick Tips */}
+                <div className="mt-8 p-4 bg-yellow-600/10 border border-yellow-600/20 rounded-lg">
+                  <div className="flex items-center mb-2">
+                    <svg className="w-5 h-5 text-yellow-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h5 className="text-yellow-500 font-semibold">Consejo Rápido</h5>
+                  </div>
+                  <p className="text-gray-300">
+                    Recuerda que puedes usar los íconos de interrogación (?) en todo el sistema 
+                    para obtener ayuda contextual sobre cualquier función específica.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* FAQ Section */}
+      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <h3 className="text-xl font-semibold text-white mb-4">Preguntas Frecuentes</h3>
+        <div className="space-y-4">
+          <div className="border-b border-gray-700 pb-4">
+            <h4 className="text-white font-medium mb-2">¿Cómo reinicio el servidor de streaming?</h4>
+            <p className="text-gray-400">
+              Ve a la sección "Servidor" y usa los controles de servicios para reiniciar Icecast.
+            </p>
+          </div>
+          <div className="border-b border-gray-700 pb-4">
+            <h4 className="text-white font-medium mb-2">¿Por qué no puedo crear más streams?</h4>
+            <p className="text-gray-400">
+              Verifica que el cliente no haya alcanzado su límite máximo de streams configurado.
+            </p>
+          </div>
+          <div className="border-b border-gray-700 pb-4">
+            <h4 className="text-white font-medium mb-2">¿Cómo configuro el Auto DJ?</h4>
+            <p className="text-gray-400">
+              En la configuración del stream, habilita la opción "Auto DJ" para reproducir música automáticamente.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default App;

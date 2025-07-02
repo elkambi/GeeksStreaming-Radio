@@ -12,6 +12,7 @@ class RadioAdminAPITester:
         self.tests_passed = 0
         self.test_client_id = None
         self.test_stream_id = None
+        self.test_bill_id = None
 
     def run_test(self, name, method, endpoint, expected_status, data=None):
         """Run a single API test"""

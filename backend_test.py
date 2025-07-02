@@ -488,6 +488,24 @@ def main():
     # Stream control tests
     tester.test_stream_control()
     
+    # Analytics tests
+    tester.test_analytics_dashboard()
+    if tester.test_stream_id:
+        tester.test_stream_analytics()
+    
+    # Billing tests
+    tester.test_billing_overview()
+    tester.test_generate_bill()
+    
+    # Server configuration tests
+    tester.test_server_config()
+    tester.test_server_stats()
+    tester.test_server_backup()
+    
+    # Help system tests
+    tester.test_help_topics()
+    tester.test_help_tooltip()
+    
     # Cleanup
     tester.test_delete_stream()
     tester.test_delete_client()
@@ -504,6 +522,10 @@ def main():
         print("3. Client creation works correctly")
         print("4. Stream creation works correctly")
         print("5. Stream control (start/stop) works correctly")
+        print("6. Analytics system works correctly")
+        print("7. Billing system works correctly")
+        print("8. Server configuration works correctly")
+        print("9. Help system works correctly")
     else:
         print(f"\n⚠️ ISSUE SUMMARY: {tester.tests_run - tester.tests_passed} tests failed")
     

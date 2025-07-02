@@ -176,6 +176,7 @@ class RadioAdminAPITester:
             return False
         
         stream_data = {
+            "client_id": self.test_client_id,  # Added client_id to the request body
             "name": f"Test Stream {uuid.uuid4().hex[:8]}",
             "description": "Test stream description",
             "port": 8000 + (uuid.uuid4().int % 1000),  # Random port to avoid conflicts

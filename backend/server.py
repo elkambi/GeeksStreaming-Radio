@@ -181,8 +181,12 @@ async def create_client(client: RadioClient, current_user: dict = Depends(get_cu
     if existing_client:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    clients_collection.insert_one(client_dict)
-    return {"message": "Client created successfully", "client": client_dict}
+    # Insert and get the inserted document
+    result = clients_collection.insert_one(client_dict)
+    
+    # Return the client data without MongoDB ObjectId
+    created_client = clients_collection.find_one({"id": client_dict["id"]}, {"_id": 0})
+    return {"message": "Client created successfully", "client": created_client}
 
 @app.get("/api/clients/{client_id}")
 async def get_client(client_id: str, current_user: dict = Depends(get_current_user)):

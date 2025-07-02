@@ -703,12 +703,16 @@ function StreamManagement({ streams, clients, onRefresh, fetchWithAuth }) {
         : `/api/clients/${formData.client_id}/streams`;
       const method = editingStream ? 'PUT' : 'POST';
       
+      console.log('Submitting stream:', { url, method, formData });
+      
       const response = await fetchWithAuth(url, {
         method,
         body: JSON.stringify(formData)
       });
       
       if (response.ok) {
+        const responseData = await response.json();
+        console.log('Stream creation response:', responseData);
         setShowModal(false);
         setEditingStream(null);
         setFormData({
@@ -722,9 +726,14 @@ function StreamManagement({ streams, clients, onRefresh, fetchWithAuth }) {
           format: 'mp3'
         });
         onRefresh();
+      } else {
+        const errorData = await response.json();
+        console.error('Stream creation failed:', errorData);
+        alert(`Error: ${errorData.detail || 'Failed to create stream'}`);
       }
     } catch (error) {
       console.error('Error saving stream:', error);
+      alert('Network error occurred while saving stream');
     }
   };
 

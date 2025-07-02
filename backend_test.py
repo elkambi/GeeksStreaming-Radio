@@ -316,6 +316,137 @@ class RadioAdminAPITester:
         if success:
             self.test_client_id = None
         return success
+        
+    # Analytics tests
+    def test_analytics_dashboard(self):
+        """Test getting analytics dashboard data"""
+        success, response = self.run_test(
+            "Get Analytics Dashboard",
+            "GET",
+            "/api/analytics/dashboard",
+            200
+        )
+        if success:
+            print(f"Analytics dashboard data retrieved with {len(response.get('listener_history', []))} listener records")
+        return success
+    
+    def test_stream_analytics(self):
+        """Test getting analytics for a specific stream"""
+        if not self.test_stream_id:
+            print("❌ No test stream ID available")
+            return False
+            
+        success, response = self.run_test(
+            "Get Stream Analytics",
+            "GET",
+            f"/api/analytics/stream/{self.test_stream_id}?days=7",
+            200
+        )
+        if success:
+            print(f"Stream analytics retrieved for {response.get('period_days', 0)} days")
+        return success
+    
+    # Billing tests
+    def test_billing_overview(self):
+        """Test getting billing overview"""
+        success, response = self.run_test(
+            "Get Billing Overview",
+            "GET",
+            "/api/billing/clients",
+            200
+        )
+        if success:
+            print(f"Billing overview retrieved for {len(response)} clients")
+        return success
+    
+    def test_generate_bill(self):
+        """Test generating a bill for a client"""
+        if not self.test_client_id:
+            print("❌ No test client ID available")
+            return False
+            
+        success, response = self.run_test(
+            "Generate Bill",
+            "POST",
+            f"/api/billing/generate/{self.test_client_id}",
+            200,
+            data={}
+        )
+        if success and 'bill' in response:
+            self.test_bill_id = response['bill']['id']
+            print(f"Generated bill with ID: {self.test_bill_id}")
+        return success
+    
+    # Server configuration tests
+    def test_server_config(self):
+        """Test getting server configuration"""
+        success, response = self.run_test(
+            "Get Server Configuration",
+            "GET",
+            "/api/server/config",
+            200
+        )
+        if success:
+            print(f"Server configuration retrieved with {len(response)} categories")
+            for category, configs in response.items():
+                print(f"  - {category}: {len(configs)} settings")
+        return success
+    
+    def test_server_stats(self):
+        """Test getting server stats"""
+        success, response = self.run_test(
+            "Get Server Stats",
+            "GET",
+            "/api/server/stats",
+            200
+        )
+        if success:
+            print("Server stats retrieved successfully")
+            if 'system' in response:
+                print(f"  - CPU: {response['system'].get('cpu_percent', 'N/A')}%")
+                print(f"  - Memory: {response['system'].get('memory_percent', 'N/A')}%")
+                print(f"  - Disk: {response['system'].get('disk_percent', 'N/A')}%")
+        return success
+    
+    def test_server_backup(self):
+        """Test creating a server backup"""
+        success, response = self.run_test(
+            "Create Server Backup",
+            "POST",
+            "/api/server/backup",
+            200,
+            data={}
+        )
+        if success:
+            print(f"Backup created with ID: {response.get('backup_id', 'unknown')}")
+        return success
+    
+    # Help system tests
+    def test_help_topics(self):
+        """Test getting help topics"""
+        success, response = self.run_test(
+            "Get Help Topics",
+            "GET",
+            "/api/help/topics",
+            200
+        )
+        if success:
+            print(f"Help topics retrieved with {len(response)} categories")
+            for category, data in response.items():
+                print(f"  - {data.get('title')}: {len(data.get('sections', []))} sections")
+        return success
+    
+    def test_help_tooltip(self):
+        """Test getting help tooltip"""
+        success, response = self.run_test(
+            "Get Help Tooltip",
+            "GET",
+            "/api/help/tooltip/client_max_streams",
+            200
+        )
+        if success:
+            print(f"Help tooltip retrieved: {response.get('tooltip', '')[:50]}...")
+        return success
 
 def main():
     # Get backend URL from frontend .env file

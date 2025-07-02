@@ -252,8 +252,12 @@ async def create_stream(client_id: str, stream: RadioStream, current_user: dict 
     stream_dict = stream.dict()
     stream_dict["stream_url"] = f"http://radio-server.com:{stream.port}{stream.mount_point}"
     
-    streams_collection.insert_one(stream_dict)
-    return {"message": "Stream created successfully", "stream": stream_dict}
+    # Insert and get the inserted document
+    result = streams_collection.insert_one(stream_dict)
+    
+    # Return the stream data without MongoDB ObjectId
+    created_stream = streams_collection.find_one({"id": stream_dict["id"]}, {"_id": 0})
+    return {"message": "Stream created successfully", "stream": created_stream}
 
 @app.put("/api/streams/{stream_id}")
 async def update_stream(stream_id: str, stream_update: dict, current_user: dict = Depends(get_current_user)):

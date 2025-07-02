@@ -13,6 +13,19 @@ from passlib.context import CryptContext
 from bson import ObjectId
 import json
 
+# Custom JSON encoder for MongoDB ObjectId
+class JSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, ObjectId):
+            return str(o)
+        return super().default(o)
+
+# Helper function to convert MongoDB documents
+def convert_mongo_doc(doc):
+    if doc and "_id" in doc:
+        doc["_id"] = str(doc["_id"])
+    return doc
+
 # Environment variables
 MONGO_URL = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'radio-admin-secret-key-2025')
